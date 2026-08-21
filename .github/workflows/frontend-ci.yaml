@@ -20,15 +20,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install dependencies
         run: npm install
-        working-directory: frontend
+        working-directory: starter/frontend
 
       - name: Run tests
-        run: npm test
-        working-directory: frontend
+        run: npm test -- --watchAll=false
+        working-directory: starter/frontend
 
   build:
     name: Build Docker Image
@@ -41,4 +41,4 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t frontend-app .
-        working-directory: frontend
+        working-directory: starter/frontend
