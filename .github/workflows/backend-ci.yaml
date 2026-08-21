@@ -1,0 +1,51 @@
+name: Backend Continuous Integration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backend-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install dependencies
+        working-directory: starter/backend
+        run: pipenv install
+
+      - name: Run lint
+        working-directory: starter/backend
+        run: pipenv run lint
+
+  backend-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install dependencies
+        working-directory: starter/backend
+        run: pipenv install
+
+      - name: Run tests
+        working-directory: starter/backend
+        run: pipenv run test
