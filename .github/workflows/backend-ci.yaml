@@ -19,6 +19,9 @@ jobs:
       - name: Install Pipenv
         run: pip install pipenv
 
+      - name: Install Flake8
+        run: pip install flake8
+
       - name: Install dependencies
         working-directory: starter/backend
         run: pipenv install
