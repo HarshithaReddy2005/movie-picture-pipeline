@@ -1,54 +1,70 @@
 name: Backend Continuous Integration
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   backend-lint:
+    name: Backend Lint
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install Pipenv
         run: pip install pipenv
 
-      - name: Install Flake8
-        run: pip install flake8
-
       - name: Install dependencies
         working-directory: starter/backend
-        run: pipenv install
+        run: pipenv install --dev
 
       - name: Run lint
         working-directory: starter/backend
         run: pipenv run lint
 
   backend-test:
+    name: Backend Test
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install Pipenv
         run: pip install pipenv
 
       - name: Install dependencies
         working-directory: starter/backend
-        run: pipenv install
+        run: pipenv install --dev
 
       - name: Run tests
         working-directory: starter/backend
         run: pipenv run test
+
+  backend-build:
+    name: Build Backend
+    needs:
+      - backend-lint
+      - backend-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        working-directory: starter/backend
+        run: docker build -t backend-app .
