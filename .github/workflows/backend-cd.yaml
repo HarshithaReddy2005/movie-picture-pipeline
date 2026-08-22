@@ -12,6 +12,9 @@ on:
 
 jobs:
 
+  # ============================================================
+  # JOB 1: BACKEND LINT
+  # ============================================================
   backend-lint:
     name: Backend Lint
     runs-on: ubuntu-latest
@@ -37,6 +40,9 @@ jobs:
         run: pipenv run lint
 
 
+  # ============================================================
+  # JOB 2: BACKEND TEST
+  # ============================================================
   backend-test:
     name: Backend Test
     runs-on: ubuntu-latest
@@ -62,6 +68,9 @@ jobs:
         run: pipenv run test
 
 
+  # ============================================================
+  # JOB 3: BUILD BACKEND
+  # ============================================================
   backend-build:
     name: Build Backend
     needs:
@@ -95,9 +104,7 @@ jobs:
           ECR_REPOSITORY: backend
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build \
-            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
-            .
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
 
       - name: Push Docker image to ECR
         env:
@@ -108,6 +115,9 @@ jobs:
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
 
+  # ============================================================
+  # JOB 4: DEPLOY BACKEND
+  # ============================================================
   backend-deploy:
     name: Deploy Backend
     needs:
@@ -129,6 +139,10 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
@@ -138,12 +152,36 @@ jobs:
       - name: Deploy backend to EKS
         working-directory: starter/backend/k8s
         env:
-          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           kustomize edit set image backend="$ECR_REGISTRY/backend:$IMAGE_TAG"
           kustomize build | kubectl apply -f -
 
+      - name: Check backend deployment
+        if: always()
+        run: |
+          echo "===== DEPLOYMENT ====="
+          kubectl get deployment backend -o wide || true
+
+          echo "===== PODS ====="
+          kubectl get pods -o wide || true
+
+          echo "===== SERVICES ====="
+          kubectl get services || true
+
       - name: Verify backend deployment
         run: |
           kubectl rollout status deployment/backend --timeout=180s
+
+      - name: Diagnose failed deployment
+        if: failure()
+        run: |
+          echo "===== DEPLOYMENT DESCRIPTION ====="
+          kubectl describe deployment backend || true
+
+          echo "===== POD DESCRIPTION ====="
+          kubectl describe pods -l app=backend || true
+
+          echo "===== RECENT EVENTS ====="
+          kubectl get events --sort-by=.lastTimestamp | tail -50 || true
