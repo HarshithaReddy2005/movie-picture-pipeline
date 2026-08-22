@@ -1,15 +1,41 @@
-name: Frontend CI
+name: Frontend Continuous Integration
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
 
 jobs:
-  test:
+  frontend-lint:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: starter/frontend/.nvmrc
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: starter/frontend/node_modules
+          key: ${{ runner.os }}-frontend-${{ hashFiles('starter/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
+
+      - name: Install dependencies
+        working-directory: starter/frontend
+        run: npm ci
+
+      - name: Run lint
+        working-directory: starter/frontend
+        run: npm run lint
+
+  frontend-test:
     name: Test Frontend
     runs-on: ubuntu-latest
 
@@ -17,28 +43,55 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: starter/frontend/.nvmrc
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: starter/frontend/node_modules
+          key: ${{ runner.os }}-frontend-${{ hashFiles('starter/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
 
       - name: Install dependencies
-        run: npm install
         working-directory: starter/frontend
+        run: npm ci
 
       - name: Run tests
-        run: npm test -- --watchAll=false
         working-directory: starter/frontend
+        run: CI=true npm test -- --watchAll=false
 
-  build:
-    name: Build Docker Image
+  frontend-build:
+    name: Build Frontend
+    needs:
+      - frontend-lint
+      - frontend-test
     runs-on: ubuntu-latest
-    needs: test
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t frontend-app .
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: starter/frontend/.nvmrc
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: starter/frontend/node_modules
+          key: ${{ runner.os }}-frontend-${{ hashFiles('starter/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
+
+      - name: Install dependencies
         working-directory: starter/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: starter/frontend
+        run: npm run build
