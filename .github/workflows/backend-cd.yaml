@@ -11,7 +11,62 @@ on:
   workflow_dispatch:
 
 jobs:
-  backend-build-deploy:
+
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install dependencies
+        working-directory: starter/backend
+        run: pipenv install --dev
+
+      - name: Run lint
+        working-directory: starter/backend
+        run: pipenv run lint
+
+
+  backend-test:
+    name: Backend Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Pipenv
+        run: pip install pipenv
+
+      - name: Install dependencies
+        working-directory: starter/backend
+        run: pipenv install --dev
+
+      - name: Run tests
+        working-directory: starter/backend
+        run: pipenv run test
+
+
+  backend-build:
+    name: Build Backend
+    needs:
+      - backend-lint
+      - backend-test
     runs-on: ubuntu-latest
 
     permissions:
@@ -52,6 +107,28 @@ jobs:
         run: |
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
+
+  backend-deploy:
+    name: Deploy Backend
+    needs:
+      - backend-build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
@@ -61,7 +138,7 @@ jobs:
       - name: Deploy backend to EKS
         working-directory: starter/backend/k8s
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           kustomize edit set image backend="$ECR_REGISTRY/backend:$IMAGE_TAG"
